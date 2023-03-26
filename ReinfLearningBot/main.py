@@ -1,16 +1,18 @@
-# This is a sample Python script.
+import rlgym
+import random
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+env = rlgym.make()
+iteration = 0
+while True:
+    obs = env.reset()
+    done = False
 
+    while not done:
+        print(f"Iteration {iteration}:")
+        iteration += 1
+        # Here we sample a random action. If you have an agent, you would get an action from it here.
+        action = env.action_space.sample()
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+        next_obs, reward, done, gameinfo = env.step(action)
 
-
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('there')
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+        obs = next_obs
