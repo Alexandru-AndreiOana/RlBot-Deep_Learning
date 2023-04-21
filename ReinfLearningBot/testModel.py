@@ -11,7 +11,6 @@ from rlgym.utils.terminal_conditions.common_conditions import TimeoutCondition
 
 from rlgym.envs import Match
 from rlgym_tools.sb3_utils import SB3MultipleInstanceEnv
-from rlgym_tools.extra_action_parsers.kbm_act import KBMAction
 
 from ObservationBuilder import CustomObsBuilder
 
@@ -26,19 +25,8 @@ max_steps = int(round(EP_LEN_SECONDS * PHYSICS_TICKS_PER_SECOND / DEFAULT_TICK_S
 liu_distance = LiuDistancePlayerToBallReward()
 terminal_condition = TimeoutCondition(max_steps)
 
-
 # --------------------
 # Methods
-
-def get_match():
-    return Match(
-        reward_function=liu_distance,
-        terminal_conditions=[terminal_condition],
-        obs_builder=CustomObsBuilder(),
-        state_setter=RandomState(),
-        action_parser=KBMAction(),
-        # game_speed=1
-    )
 
 
 if __name__ == "__main__":
@@ -49,7 +37,10 @@ if __name__ == "__main__":
     #                  game_speed=1
     #                  )
 
-    env = SB3MultipleInstanceEnv(match_func_or_matches=get_match, num_instances=2, wait_time=20)
+    env = rlgym.make(reward_fn=liu_distance, terminal_conditions=[terminal_condition],
+                     obs_builder=CustomObsBuilder(),
+                     state_setter=RandomState(),
+                     action_parser=DefaultAction())
 
     # TODO: Try using a custom neural network architecture for training the policy
     model = PPO("MlpPolicy",
