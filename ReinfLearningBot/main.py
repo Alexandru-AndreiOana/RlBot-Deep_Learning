@@ -3,9 +3,14 @@ import matplotlib.pyplot as plt
 import rlgym_tools
 
 from rlgym.utils.reward_functions.common_rewards import LiuDistancePlayerToBallReward
+from rlgym.utils.reward_functions.common_rewards import FaceBallReward
+from rlgym_tools.extra_rewards.multiply_rewards import MultiplyRewards
+
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback
 from rlgym.utils.state_setters import RandomState
+from rlgym.utils.obs_builders import AdvancedObs
+
 from rlgym.utils.action_parsers import DefaultAction
 from rlgym.utils.terminal_conditions.common_conditions import TimeoutCondition
 
@@ -39,8 +44,8 @@ terminal_condition = TimeoutCondition(max_steps)
 def get_match():
     return Match(
         reward_function=liu_distance,
-        terminal_conditions=[TimeoutCondition(225)],
-        obs_builder=CustomObsBuilder(),
+        terminal_conditions=[TimeoutCondition(400)],
+        obs_builder=AdvancedObs(),
         state_setter=RandomState(),
         action_parser=KBMAction(),
         tick_skip=DEFAULT_TICK_SKIP,
@@ -50,20 +55,29 @@ def get_match():
 
 
 if __name__ == "__main__":
-    env = SB3MultipleInstanceEnv(match_func_or_matches=get_match, num_instances=8, wait_time=20)
+    env = SB3MultipleInstanceEnv(match_func_or_matches=get_match, num_instances=4, wait_time=35)
+    env = VecCheckNan(env)
     env = VecMonitor(env)  # enables logging for rollout phase (episode length, mean reward)
-    env = VecNormalize(env, norm_obs=False, gamma=0.9)  # reward normalization
+    env = VecNormalize(env, norm_obs=True, gamma=0.9)  # reward normalization
 
     # TODO: Try using a custom neural network architecture for training the policy
     model = PPO("MlpPolicy",
                 env=env,
+                n_epochs=30,
+                learning_rate=1e-4,
+                n_steps=4096,
+                batch_size=4096,
                 ent_coef=0.01,
-                verbose=0,
+                verbose=2,
                 tensorboard_log="./rl_tensorboard_log",
                 device="auto")
 
     # Use a checkpoint callback to save the model during training
-    checkpoint_callback = CheckpointCallback(save_freq=round(5_000_000 / env.num_envs), save_path='./logs/',
+    checkpoint_callback = CheckpointCallback(save_freq=round(5_000_000 / env.num_envs),
+                                             save_path='./logs/dist_player_ball_2',
                                              name_prefix="rl_model")
 
-    model.learn(total_timesteps=TIME_STEPS, callback=[checkpoint_callback], tb_log_name="speed_objective")
+    model.learn(total_timesteps=TIME_STEPS,
+                callback=[checkpoint_callback],
+                tb_log_name="player_ball_dist_run")
+ 

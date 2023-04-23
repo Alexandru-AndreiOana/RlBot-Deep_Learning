@@ -4,7 +4,7 @@ from rlgym.utils.gamestates import GameState, PlayerData
 import numpy as np
 
 
-class SpeedReward(RewardFunction):
+class CustomReward(RewardFunction):
     def reset(self, initial_state: GameState):
         pass
 
