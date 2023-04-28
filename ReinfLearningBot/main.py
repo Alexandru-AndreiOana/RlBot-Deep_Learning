@@ -65,7 +65,7 @@ if __name__ == "__main__":
 
     # Save the model each n steps
     checkpoint_callback = CheckpointCallback(save_freq=round(5_000_000 / env.num_envs),
-                                             save_path='./logs/dist_player_ball_cstm_rw',
+                                             save_path='./logs/dist_player_ball_cstm_rw2',
                                              name_prefix="rl_model")
 
     # TODO: Try using a custom neural network architecture for training the policy
@@ -77,7 +77,7 @@ if __name__ == "__main__":
                                              _last_obs=None,
                                              learning_rate=2e-5,
                                              batch_size=2048,
-                                             n_epochs=4,
+                                             n_epochs=40,
                                              ent_coef=0.01),
                          device="auto",
                          force_reset=True)
