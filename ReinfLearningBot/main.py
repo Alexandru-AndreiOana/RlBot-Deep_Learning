@@ -6,6 +6,7 @@ from rlgym.utils.reward_functions import CombinedReward
 from rlgym.utils.reward_functions.common_rewards import LiuDistancePlayerToBallReward
 
 from stable_baselines3 import PPO
+from torch.nn import Tanh
 from stable_baselines3.common.callbacks import CheckpointCallback
 from rlgym.utils.state_setters import RandomState
 from rlgym.utils.obs_builders import AdvancedObs
@@ -22,7 +23,7 @@ from ReinfLearningBot.RewardFunction import CustomReward
 
 # ----------------
 # CONSTANTS
-LOAD_PREV_AGENT = True  # set true to train from a previous checkpoint
+LOAD_PREV_AGENT = False  # set true to train from a previous checkpoint
 NUM_PLAYERS = 1  # set for solo play
 NUM_INSTANCES = 4  # concurrent game instances to run
 
@@ -65,10 +66,9 @@ if __name__ == "__main__":
 
     # Save the model each n steps
     checkpoint_callback = CheckpointCallback(save_freq=round(5_000_000 / env.num_envs),
-                                             save_path='./logs/dist_player_ball_cstm_rw2',
+                                             save_path='./logs/dist_player_ball_config_7',
                                              name_prefix="rl_model")
 
-    # TODO: Try using a custom neural network architecture for training the policy
     if LOAD_PREV_AGENT:
         print("Loading from previous configuration.")
         model = PPO.load(path="./logs/dist_player_ball_cstm_rw/rl_model_25000000_steps.zip",
@@ -77,20 +77,25 @@ if __name__ == "__main__":
                                              _last_obs=None,
                                              learning_rate=2e-5,
                                              batch_size=2048,
-                                             n_epochs=40,
+                                             n_epochs=30,
                                              ent_coef=0.01),
                          device="auto",
                          force_reset=True)
     else:
         print("Starting with a new configuration.")
+
+        # Custom neural network architecture for the policy and value function
+        policy_kwargs = dict(activation_fn=Tanh,
+                             net_arch=dict(pi=[256, 256], vf=[256, 256]))
+
         model = PPO("MlpPolicy",
                     env=env,
                     n_epochs=30,
+                    policy_kwargs=policy_kwargs,
                     learning_rate=1e-4,
                     n_steps=4096,
                     batch_size=4096,
                     ent_coef=0.01,
-                    seed=1,
                     verbose=2,
                     tensorboard_log="./rl_tensorboard_log",
                     device="auto")
@@ -98,5 +103,5 @@ if __name__ == "__main__":
     print("Learning will start.")
     model.learn(total_timesteps=LEARNING_STEPS_TOTAL,
                 callback=[checkpoint_callback],
-                tb_log_name="plr_ball_cstm_rw_2",
+                tb_log_name="plr_ball_cstm_arch",
                 reset_num_timesteps=LOAD_PREV_AGENT)
