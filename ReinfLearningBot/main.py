@@ -23,7 +23,7 @@ from ReinfLearningBot.RewardFunction import CustomReward
 
 # ----------------
 # CONSTANTS
-LOAD_PREV_AGENT = False  # set true to train from a previous checkpoint
+LOAD_PREV_AGENT = True  # set true to train from a previous checkpoint
 NUM_PLAYERS = 1  # set for solo play
 NUM_INSTANCES = 4  # concurrent game instances to run
 
@@ -66,19 +66,19 @@ if __name__ == "__main__":
 
     # Save the model each n steps
     checkpoint_callback = CheckpointCallback(save_freq=round(5_000_000 / env.num_envs),
-                                             save_path='./logs/dist_player_ball_config_7',
+                                             save_path='./logs/dist_player_ball_config_8',
                                              name_prefix="rl_model")
 
     if LOAD_PREV_AGENT:
         print("Loading from previous configuration.")
-        model = PPO.load(path="./logs/dist_player_ball_cstm_rw/rl_model_25000000_steps.zip",
+        model = PPO.load(path="./logs/dist_player_ball_config_7/rl_model_10000000_steps.zip",
                          env=env,
                          custom_objects=dict(n_envs=env.num_envs,
                                              _last_obs=None,
-                                             learning_rate=2e-5,
+                                             learning_rate=3e-5,
                                              batch_size=2048,
-                                             n_epochs=30,
-                                             ent_coef=0.01),
+                                             n_epochs=10,
+                                             ent_coef=0.008),
                          device="auto",
                          force_reset=True)
     else:
