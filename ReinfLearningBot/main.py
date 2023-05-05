@@ -22,8 +22,12 @@ from stable_baselines3.common.vec_env import VecMonitor, VecNormalize, VecCheckN
 from ReinfLearningBot.RewardFunction import CustomReward
 
 # ----------------
-# CONSTANTS
+# CONFIGURATION
+CONFIG_NUMBER = 9
+CONFIG_NAME = f"Config_{CONFIG_NUMBER}"
 LOAD_PREV_AGENT = True  # set true to train from a previous checkpoint
+
+# CONSTANTS
 NUM_PLAYERS = 1  # set for solo play
 NUM_INSTANCES = 4  # concurrent game instances to run
 
@@ -66,16 +70,17 @@ if __name__ == "__main__":
 
     # Save the model each n steps
     checkpoint_callback = CheckpointCallback(save_freq=round(5_000_000 / env.num_envs),
-                                             save_path='./logs/dist_player_ball_config_8',
+                                             save_path=f"./logs/{CONFIG_NAME}",
                                              name_prefix="rl_model")
 
     if LOAD_PREV_AGENT:
         print("Loading from previous configuration.")
-        model = PPO.load(path="./logs/dist_player_ball_config_7/rl_model_10000000_steps.zip",
+        model = PPO.load(path="./logs/dist_player_ball_config_8/rl_model_55000000_steps.zip",
                          env=env,
                          custom_objects=dict(n_envs=env.num_envs,
                                              _last_obs=None,
-                                             learning_rate=3e-5,
+                                             learning_rate=5e-6,
+                                             clip_range=0.1,
                                              batch_size=2048,
                                              n_epochs=10,
                                              ent_coef=0.008),
@@ -103,5 +108,5 @@ if __name__ == "__main__":
     print("Learning will start.")
     model.learn(total_timesteps=LEARNING_STEPS_TOTAL,
                 callback=[checkpoint_callback],
-                tb_log_name="plr_ball_cstm_arch",
+                tb_log_name=CONFIG_NAME,
                 reset_num_timesteps=LOAD_PREV_AGENT)
