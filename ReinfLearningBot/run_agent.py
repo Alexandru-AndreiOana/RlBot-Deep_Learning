@@ -1,60 +1,86 @@
 import rlgym
+from rlgym.utils.action_parsers import DiscreteAction
 from rlgym.utils.reward_functions import CombinedReward
-from rlgym.utils.reward_functions.common_rewards import LiuDistancePlayerToBallReward
+from rlgym.utils.reward_functions.common_rewards import VelocityPlayerToBallReward, \
+    VelocityBallToGoalReward, EventReward
+
+from stable_baselines3 import PPO
 from rlgym.utils.state_setters import RandomState
 from rlgym.utils.obs_builders import AdvancedObs
-from rlgym.utils.terminal_conditions.common_conditions import TimeoutCondition
-from rlgym.envs import Match
-from rlgym_tools.extra_action_parsers.kbm_act import KBMAction
-from stable_baselines3 import PPO
 
-from ReinfLearningBot.RewardFunction import CustomReward
+from rlgym.utils.terminal_conditions.common_conditions import TimeoutCondition, NoTouchTimeoutCondition, \
+    GoalScoredCondition
 
-# ----------------
-# CONSTANTS
-NUM_TEST_EPISODES = 10
+from rlgym_tools.sb3_utils import SB3SingleInstanceEnv
 
-# ------------------
-# Environment configuration objects
-liu_distance = LiuDistancePlayerToBallReward()
+from stable_baselines3.common.vec_env import VecMonitor, VecNormalize, VecCheckNan
 
+frame_skip = 8          # Number of ticks to repeat an action
+half_life_seconds = 5   # Easier to conceptualize, after this many seconds the reward discount is 0.5
 
-def get_match():
-    return Match(
-        reward_function=CustomReward(),
-        terminal_conditions=[TimeoutCondition(500)],
-        obs_builder=AdvancedObs(),
-        state_setter=RandomState(),
-        action_parser=KBMAction(),
-        spawn_opponents=False,
-    )
+fps = 120 // frame_skip
+agents_per_match = 2
+num_instances = 4
+target_steps = 1_000_000
+steps = target_steps // (num_instances * agents_per_match) #making sure the experience counts line up properly
+batch_size = target_steps//10 #getting the batch size down to something more manageable - 100k in this case
+training_interval = 25_000_000
+mmr_save_frequency = 50_000_000
+# Constants
+NUM_TEST_EPISODES = 1000
 
 
-env = rlgym.make(reward_fn=CustomReward,
-                 terminal_conditions=[TimeoutCondition(500)],
-                 obs_builder=AdvancedObs())
-
-
-def test_agent(model, num_episodes):
-    env = get_match()
-
+def test_agent(model, env, num_episodes):
     for episode in range(num_episodes):
-
         obs = env.reset()
-        done = False
         total_reward = 0
 
-        while not done:
-            action, _ = model.predict(obs, deterministic=True)
-            parsed_action = KBMAction().parse_actions(action[0])
-            obs, reward, done, _ = env.step(action)
+        action, _states = model.predict(obs, deterministic=False)
+        obs, reward, done, info = env.step(action)
+        total_reward += reward
+
+        while not done.any():
+            action, _states = model.predict(obs, deterministic=False)
+            obs, reward, done, info = env.step(action)
             total_reward += reward
 
         print(f"Episode {episode + 1}: Total reward = {total_reward}")
 
 
 if __name__ == "__main__":
-    model_path = "logs/cstm_rew_2/rl_model_45000000_steps.zip"
-    model = PPO.load(model_path)
+    model_path = "models/BASELINE_1V1/rl_model_25000000_steps.zip"
 
-    test_agent(model, NUM_TEST_EPISODES)
+    # Setting up the environment
+    env = rlgym.make(
+        game_speed=5,
+        team_size=1,
+        tick_skip=frame_skip,
+        reward_fn=CombinedReward(
+            (
+                VelocityPlayerToBallReward(),
+                VelocityBallToGoalReward(),
+                EventReward(
+                    team_goal=100.0,
+                    concede=-100.0,
+                    shot=5.0,
+                    save=30.0,
+                    demo=10.0,
+                ),
+            ),
+            (0.1, 1.0, 1.0)
+        ),
+        spawn_opponents=True,
+        terminal_conditions=[TimeoutCondition(fps * 300), NoTouchTimeoutCondition(fps * 45), GoalScoredCondition()],
+        obs_builder=AdvancedObs(),
+        state_setter=RandomState(),
+        action_parser=DiscreteAction()
+    )
+
+    env = SB3SingleInstanceEnv(env)
+    env = VecCheckNan(env)
+    env = VecMonitor(env)
+    env = VecNormalize(env, norm_obs=True, gamma=0.9)
+
+    model = PPO.load(model_path, env=env)
+
+    test_agent(model, env, NUM_TEST_EPISODES)
