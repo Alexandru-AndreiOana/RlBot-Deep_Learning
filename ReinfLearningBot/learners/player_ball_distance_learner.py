@@ -14,6 +14,7 @@ from rlgym_tools.extra_action_parsers.kbm_act import KBMAction
 
 from stable_baselines3.common.vec_env import VecMonitor, VecNormalize, VecCheckNan
 
+from ReinfLearningBot.environment_config_objects.action_parser import CustomActionParser
 from ReinfLearningBot.environment_config_objects.reward_function import CustomBallPlayerDistanceReward
 
 # ----------------
@@ -51,7 +52,7 @@ def get_match():
         terminal_conditions=[TimeoutCondition(500)],
         obs_builder=AdvancedObs(),
         state_setter=RandomState(),
-        action_parser=KBMAction(),
+        action_parser=CustomActionParser(),
         spawn_opponents=False,
         game_speed=1
     )
@@ -74,7 +75,7 @@ if __name__ == "__main__":
                          env=env,
                          custom_objects=dict(n_envs=env.num_envs,
                                              _last_obs=None,
-                                             learning_rate=5e-6,
+                                             learning_rate=2e-5,
                                              clip_range=0.1,
                                              batch_size=2048,
                                              n_epochs=10,
@@ -90,9 +91,9 @@ if __name__ == "__main__":
 
         model = PPO("MlpPolicy",
                     env=env,
-                    n_epochs=30,
+                    n_epochs=20,
                     policy_kwargs=policy_kwargs,
-                    learning_rate=1e-4,
+                    learning_rate=3e-5,
                     n_steps=4096,
                     batch_size=4096,
                     ent_coef=0.01,

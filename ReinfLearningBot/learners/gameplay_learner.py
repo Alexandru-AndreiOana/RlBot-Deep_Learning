@@ -1,4 +1,5 @@
 from rlgym.envs import Match
+from rlgym.utils.reward_functions.common_rewards import VelocityPlayerToBallReward, RewardIfClosestToBall
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.vec_env import VecMonitor, VecNormalize, VecCheckNan
@@ -16,52 +17,51 @@ from rlgym.utils.reward_functions import CombinedReward
 from ReinfLearningBot.environment_config_objects.action_parser import CustomActionParser
 from ReinfLearningBot.environment_config_objects.reward_function import CustomBallPlayerDistanceReward
 
+frame_skip = 8  # Number of ticks to repeat an action
+
+fps = 120 // frame_skip
+gamma = 0.999
+agents_per_match = 2
+num_instances = 4
+
+target_steps = 1_000_000
+steps = target_steps // (num_instances * agents_per_match)
+batch_size = target_steps // 10
+
+training_interval = 20_000_000_000
+mmr_save_frequency = 50_000_000
+
+
+def get_match():  # Need to use a function so that each instance can call it and produce their own objects
+    return Match(
+        team_size=1,
+        reward_function=CombinedReward(
+            (
+                VelocityPlayerToBallReward(),
+                VelocityBallToGoalReward(),
+                EventReward(
+                    goal=100.0,
+                    concede=-100.0,
+                    save=20.0,
+                    demo=10.0,
+                    shot=10.0,
+                    touch=2,
+                ),
+            ),
+            (0.1, 1.0, 1.0)),
+        # self_play=True,  in rlgym 1.2 'self_play' is depreciated. Uncomment line if using an earlier version and comment out spawn_opponents
+        spawn_opponents=True,
+        terminal_conditions=[TimeoutCondition(fps * 30), NoTouchTimeoutCondition(fps * 15), GoalScoredCondition()],
+        obs_builder=AdvancedObs(),  # Not that advanced, good default
+        state_setter=RandomState(),  # Resets to kickoff position
+        action_parser=CustomActionParser()  # Discrete > Continuous don't @ me
+    )
+
+
 if __name__ == '__main__':
-    frame_skip = 8  # Number of ticks to repeat an action
-
-    fps = 120 // frame_skip
-    gamma = 0.999
-    agents_per_match = 2
-    num_instances = 4
-
-    target_steps = 1_000_000
-    steps = target_steps // (num_instances * agents_per_match)
-    batch_size = target_steps // 10
-
-    training_interval = 20_000_000_000
-    mmr_save_frequency = 50_000_000
-
 
     def exit_save(model):
         model.save("./models/1s_config_1")
-
-
-    def get_match():  # Need to use a function so that each instance can call it and produce their own objects
-        return Match(
-            team_size=1,
-            tick_skip=frame_skip,
-            reward_function=CombinedReward(
-                (
-                    CustomBallPlayerDistanceReward(),
-                    VelocityBallToGoalReward(),
-                    EventReward(
-                        goal=100.0,
-                        concede=-100.0,
-                        save=5.0,
-                        demo=5.0,
-                        shot=5.0,
-                        touch=1,
-                        boost_pickup=0.1
-                    ),
-                ),
-                (0.1, 0.2, 1.0)),
-            # self_play=True,  in rlgym 1.2 'self_play' is depreciated. Uncomment line if using an earlier version and comment out spawn_opponents
-            spawn_opponents=True,
-            terminal_conditions=[TimeoutCondition(fps * 60), NoTouchTimeoutCondition(fps * 30), GoalScoredCondition()],
-            obs_builder=AdvancedObs(),  # Not that advanced, good default
-            state_setter=RandomState(),  # Resets to kickoff position
-            action_parser=CustomActionParser()  # Discrete > Continuous don't @ me
-        )
 
 
     env = SB3MultipleInstanceEnv(get_match, num_instances)  # Optional: add custom waiting time to load more instances
@@ -86,21 +86,22 @@ if __name__ == '__main__':
 
         policy_kwargs = dict(
             activation_fn=Tanh,
-            net_arch=dict(pi=[512, 256, 256, 256], vf=[1024, 512, 256, 256, 256]),
+            net_arch=dict(pi=[256, 256], vf=[256, 256])
         )
 
         model = PPO(
             MlpPolicy,
             env,
-            n_epochs=10,
+            n_epochs=15,
             policy_kwargs=policy_kwargs,
-            learning_rate=5e-5,
+            learning_rate=3e-5,
             ent_coef=0.01,  # From PPO Atari
             vf_coef=1.,  # From PPO Atari
             gamma=gamma,
             verbose=3,
             batch_size=batch_size,
             n_steps=steps,
+            clip_range=0.1,
             tensorboard_log="./rl_tensorboard_log",
             device="auto"
         )
