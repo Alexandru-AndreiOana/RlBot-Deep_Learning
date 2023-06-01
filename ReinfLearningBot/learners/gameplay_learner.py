@@ -6,7 +6,7 @@ from stable_baselines3.common.vec_env import VecMonitor, VecNormalize, VecCheckN
 from stable_baselines3.ppo import MlpPolicy
 
 from rlgym.utils.obs_builders import AdvancedObs
-from rlgym.utils.state_setters import RandomState
+from rlgym.utils.state_setters import RandomState, DefaultState
 from rlgym.utils.terminal_conditions.common_conditions import TimeoutCondition, NoTouchTimeoutCondition, \
     GoalScoredCondition
 from rlgym_tools.sb3_utils import SB3MultipleInstanceEnv
@@ -15,6 +15,7 @@ from rlgym.utils.reward_functions.common_rewards.ball_goal_rewards import Veloci
 from rlgym.utils.reward_functions import CombinedReward
 
 from ReinfLearningBot.environment_config_objects.action_parser import CustomActionParser
+from ReinfLearningBot.environment_config_objects.observation_builder import CustomObs
 from ReinfLearningBot.environment_config_objects.reward_function import CustomBallPlayerDistanceReward
 
 frame_skip = 8  # Number of ticks to repeat an action
@@ -22,11 +23,11 @@ frame_skip = 8  # Number of ticks to repeat an action
 fps = 120 // frame_skip
 gamma = 0.999
 agents_per_match = 2
-num_instances = 4
+num_instances = 2
 
-target_steps = 1_000_000
+target_steps = 750_000
 steps = target_steps // (num_instances * agents_per_match)
-batch_size = target_steps // 10
+batch_size = 50_000
 
 training_interval = 20_000_000_000
 mmr_save_frequency = 50_000_000
@@ -40,19 +41,20 @@ def get_match():  # Need to use a function so that each instance can call it and
                 VelocityPlayerToBallReward(),
                 VelocityBallToGoalReward(),
                 EventReward(
-                    goal=100.0,
-                    concede=-100.0,
-                    save=20.0,
-                    demo=10.0,
-                    shot=10.0,
-                    touch=2,
+                    goal=1000.0,
+                    concede=-1000.0,
+                    save=100.0,
+                    shot=50.0,
+                    demo=20.0,
+                    touch=5,
+                    boost_pickup=0.5
                 ),
             ),
-            (0.1, 1.0, 1.0)),
+            (0.2, 0.4, 1.0)),
         # self_play=True,  in rlgym 1.2 'self_play' is depreciated. Uncomment line if using an earlier version and comment out spawn_opponents
         spawn_opponents=True,
         terminal_conditions=[TimeoutCondition(fps * 30), NoTouchTimeoutCondition(fps * 15), GoalScoredCondition()],
-        obs_builder=AdvancedObs(),  # Not that advanced, good default
+        obs_builder=CustomObs(),  # Not that advanced, good default
         state_setter=RandomState(),  # Resets to kickoff position
         action_parser=CustomActionParser()  # Discrete > Continuous don't @ me
     )
@@ -64,7 +66,7 @@ if __name__ == '__main__':
         model.save("./models/1s_config_1")
 
 
-    env = SB3MultipleInstanceEnv(get_match, num_instances)  # Optional: add custom waiting time to load more instances
+    env = SB3MultipleInstanceEnv(get_match, num_instances, wait_time=80)  # Optional: add custom waiting time to load more instances
     env = VecCheckNan(env)
     env = VecMonitor(env)  # Useful for Tensorboard logging
     env = VecNormalize(env, norm_obs=True, gamma=gamma)
@@ -86,22 +88,23 @@ if __name__ == '__main__':
 
         policy_kwargs = dict(
             activation_fn=Tanh,
-            net_arch=dict(pi=[256, 256], vf=[256, 256])
+            net_arch=dict(pi=[192, 192], vf=[192, 192])
         )
 
         model = PPO(
             MlpPolicy,
             env,
-            n_epochs=15,
+            n_epochs=31,
             policy_kwargs=policy_kwargs,
-            learning_rate=3e-5,
-            ent_coef=0.01,  # From PPO Atari
-            vf_coef=1.,  # From PPO Atari
+            learning_rate=3.7e-4,
+            ent_coef=0.05,  # From PPO Atari
+            vf_coef=1.0,  # From PPO Atari
             gamma=gamma,
             verbose=3,
             batch_size=batch_size,
             n_steps=steps,
-            clip_range=0.1,
+            clip_range=0.4,
+            gae_lambda=0.8,
             tensorboard_log="./rl_tensorboard_log",
             device="auto"
         )

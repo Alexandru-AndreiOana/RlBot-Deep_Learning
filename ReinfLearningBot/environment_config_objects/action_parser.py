@@ -7,11 +7,6 @@ from rlgym.utils.action_parsers import ActionParser
 from rlgym.utils.gamestates import GameState
 
 
-# from rlgym_tools.extra_action_parsers.kbm_act import KBMAction
-
-# NectoActionOLD = KBMAction
-
-
 class CustomActionParser(ActionParser):
     def __init__(self):
         super().__init__()
@@ -22,7 +17,7 @@ class CustomActionParser(ActionParser):
         actions = []
         # Ground
         for throttle in (-1, 0, 1):
-            for steer in (-1, 0, 1):
+            for steer in (-1, -0.5, 0, 0.5, 1):
                 for boost in (0, 1):
                     for handbrake in (0, 1):
                         if boost == 1 and throttle != 1:
