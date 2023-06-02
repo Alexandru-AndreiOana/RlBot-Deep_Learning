@@ -2,6 +2,7 @@ from rlgym.envs import Match
 from rlgym.utils.reward_functions.common_rewards import VelocityPlayerToBallReward, RewardIfClosestToBall
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import VecMonitor, VecNormalize, VecCheckNan
 from stable_baselines3.ppo import MlpPolicy
 
@@ -23,7 +24,7 @@ frame_skip = 8  # Number of ticks to repeat an action
 fps = 120 // frame_skip
 gamma = 0.999
 agents_per_match = 2
-num_instances = 2
+num_instances = 1
 
 target_steps = 750_000
 steps = target_steps // (num_instances * agents_per_match)
@@ -36,6 +37,7 @@ mmr_save_frequency = 50_000_000
 def get_match():  # Need to use a function so that each instance can call it and produce their own objects
     return Match(
         team_size=1,
+        game_speed=1,
         reward_function=CombinedReward(
             (
                 VelocityPlayerToBallReward(),
@@ -73,7 +75,7 @@ if __name__ == '__main__':
 
     try:
         model = PPO.load(
-            "gibberish",
+            "./models/1s_config_1/rl_model_100000000_steps.zip",
             env,
             device="auto",
             custom_objects={"n_envs": env.num_envs},
@@ -116,15 +118,12 @@ if __name__ == '__main__':
     try:
         mmr_model_target_count = model.num_timesteps + mmr_save_frequency
         while True:
+            mean_reward, std_reward = evaluate_policy(model, env, n_eval_episodes=5000)
             # may need to reset timesteps when you're running a diff number of instances than when you saved the model
-            model.learn(training_interval,
-                        callback=callback,
-                        tb_log_name="1s_config_1",
-                        reset_num_timesteps=False)  # can ignore callback if training_interval < callback target
-            model.save("models/exit_save")
-            if model.num_timesteps >= mmr_model_target_count:
-                model.save(f"mmr_models/{model.num_timesteps}")
-                mmr_model_target_count += mmr_save_frequency
+            # model.learn(training_interval,
+            #             callback=callback,
+            #             tb_log_name="test_log")  # can ignore callback if training_interval < callback target
+
 
     except KeyboardInterrupt:
         print("Exiting training")
