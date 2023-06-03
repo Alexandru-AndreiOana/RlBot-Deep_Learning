@@ -24,7 +24,7 @@ frame_skip = 8  # Number of ticks to repeat an action
 fps = 120 // frame_skip
 gamma = 0.999
 agents_per_match = 2
-num_instances = 1
+num_instances = 2
 
 target_steps = 750_000
 steps = target_steps // (num_instances * agents_per_match)
@@ -37,7 +37,6 @@ mmr_save_frequency = 50_000_000
 def get_match():  # Need to use a function so that each instance can call it and produce their own objects
     return Match(
         team_size=1,
-        game_speed=1,
         reward_function=CombinedReward(
             (
                 VelocityPlayerToBallReward(),
@@ -75,9 +74,8 @@ if __name__ == '__main__':
 
     try:
         model = PPO.load(
-            "./models/1s_config_1/rl_model_100000000_steps.zip",
-            env,
-            device="auto",
+            "./models/1s_config_1/rl_model_110000000_steps.zip",
+            env=env,
             custom_objects={"n_envs": env.num_envs},
             # automatically adjusts to users changing instance count, may encounter shaping error otherwise
             # If you need to adjust parameters mid-training, you can use the below example as a guide
@@ -118,7 +116,9 @@ if __name__ == '__main__':
     try:
         mmr_model_target_count = model.num_timesteps + mmr_save_frequency
         while True:
-            mean_reward, std_reward = evaluate_policy(model, env, n_eval_episodes=5000)
+            env.reset()
+            mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=1000)
+            print(mean_reward, std_reward)
             # may need to reset timesteps when you're running a diff number of instances than when you saved the model
             # model.learn(training_interval,
             #             callback=callback,
