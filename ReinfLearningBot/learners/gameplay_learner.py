@@ -24,7 +24,7 @@ frame_skip = 8  # Number of ticks to repeat an action
 fps = 120 // frame_skip
 gamma = 0.999
 agents_per_match = 2
-num_instances = 2
+num_instances = 4
 
 target_steps = 750_000
 steps = target_steps // (num_instances * agents_per_match)
@@ -67,19 +67,18 @@ if __name__ == '__main__':
         model.save("./models/1s_config_1")
 
 
-    env = SB3MultipleInstanceEnv(get_match, num_instances, wait_time=80)  # Optional: add custom waiting time to load more instances
+    env = SB3MultipleInstanceEnv(get_match, num_instances)  # Optional: add custom waiting time to load more instances
     env = VecCheckNan(env)
     env = VecMonitor(env)  # Useful for Tensorboard logging
     env = VecNormalize(env, norm_obs=True, gamma=gamma)
 
     try:
         model = PPO.load(
-            "./models/1s_config_1/rl_model_110000000_steps.zip",
+            "./models/1s_config_1/rl_model_100000000_steps.zip",
             env=env,
-            custom_objects={"n_envs": env.num_envs},
-            # automatically adjusts to users changing instance count, may encounter shaping error otherwise
-            # If you need to adjust parameters mid-training, you can use the below example as a guide
-            # custom_objects={"n_envs": env.num_envs, "n_steps": steps, "batch_size": batch_size, "n_epochs": 10, "learning_rate": 5e-5}
+            custom_objects=dict(n_envs=env.num_envs, _last_obs=None),  # Need this to change number of agents
+            device="auto",  # Need to set device again (if using a specific one)
+            force_reset=True
         )
         print("Loaded previous exit save.")
     except:
@@ -116,8 +115,7 @@ if __name__ == '__main__':
     try:
         mmr_model_target_count = model.num_timesteps + mmr_save_frequency
         while True:
-            env.reset()
-            mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=1000)
+            mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=1000, deterministic=True)
             print(mean_reward, std_reward)
             # may need to reset timesteps when you're running a diff number of instances than when you saved the model
             # model.learn(training_interval,
