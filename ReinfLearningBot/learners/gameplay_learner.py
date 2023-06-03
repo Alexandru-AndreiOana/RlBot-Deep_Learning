@@ -89,6 +89,7 @@ if __name__ == '__main__':
             "models/1s_config_1/rl_model_110000000_steps.zip",
             env=env,
             custom_objects=dict(n_envs=env.num_envs,
+                                n_steps=steps,
                                 clip_range=0.2,
                                 _last_obs=None,
                                 verbose=3,
