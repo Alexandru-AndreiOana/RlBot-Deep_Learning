@@ -1,3 +1,4 @@
+import torch
 from rlgym.envs import Match
 from rlgym.utils.reward_functions.common_rewards import VelocityPlayerToBallReward, RewardIfClosestToBall
 from stable_baselines3 import PPO
@@ -17,8 +18,11 @@ from rlgym.utils.reward_functions import CombinedReward
 
 from ReinfLearningBot.environment_config_objects.action_parser import CustomActionParser
 from ReinfLearningBot.environment_config_objects.observation_builder import CustomObs
+
+from enum import Enum
 from ReinfLearningBot.environment_config_objects.reward_function import CustomBallPlayerDistanceReward
 
+# CONSTANTS
 frame_skip = 8  # Number of ticks to repeat an action
 
 fps = 120 // frame_skip
@@ -31,7 +35,11 @@ steps = target_steps // (num_instances * agents_per_match)
 batch_size = 50_000
 
 training_interval = 20_000_000_000
-mmr_save_frequency = 50_000_000
+
+
+class LearningConfiguration(Enum):
+    TRAINING = 1
+    EVALUATION = 2
 
 
 def get_match():  # Need to use a function so that each instance can call it and produce their own objects
@@ -47,11 +55,11 @@ def get_match():  # Need to use a function so that each instance can call it and
                     save=100.0,
                     shot=50.0,
                     demo=20.0,
-                    touch=5,
+                    touch=10,
                     boost_pickup=0.5
                 ),
             ),
-            (0.2, 0.4, 1.0)),
+            (0.02, 0.04, 1.0)),
         # self_play=True,  in rlgym 1.2 'self_play' is depreciated. Uncomment line if using an earlier version and comment out spawn_opponents
         spawn_opponents=True,
         terminal_conditions=[TimeoutCondition(fps * 30), NoTouchTimeoutCondition(fps * 15), GoalScoredCondition()],
@@ -67,6 +75,10 @@ if __name__ == '__main__':
         model.save("./models/1s_config_1")
 
 
+    # print(torch.cuda.is_available())
+
+    LEARNING_PHASE = LearningConfiguration.TRAINING
+
     env = SB3MultipleInstanceEnv(get_match, num_instances)  # Optional: add custom waiting time to load more instances
     env = VecCheckNan(env)
     env = VecMonitor(env)  # Useful for Tensorboard logging
@@ -74,10 +86,14 @@ if __name__ == '__main__':
 
     try:
         model = PPO.load(
-            "./models/1s_config_1/rl_model_100000000_steps.zip",
+            "models/1s_config_1/rl_model_110000000_steps.zip",
             env=env,
-            custom_objects=dict(n_envs=env.num_envs, _last_obs=None),  # Need this to change number of agents
-            device="auto",  # Need to set device again (if using a specific one)
+            custom_objects=dict(n_envs=env.num_envs,
+                                clip_range=0.2,
+                                _last_obs=None,
+                                verbose=3,
+                                tensorboard_log="./rl_tensorboard_log"),
+            device="cpu",
             force_reset=True
         )
         print("Loaded previous exit save.")
@@ -105,22 +121,25 @@ if __name__ == '__main__':
             clip_range=0.4,
             gae_lambda=0.8,
             tensorboard_log="./rl_tensorboard_log",
-            device="auto"
+            device="cpu"
         )
 
     callback = CheckpointCallback(round(5_000_000 / env.num_envs),
-                                  save_path="./models/1s_config_1",
+                                  save_path="./models/1s_config_2",
                                   name_prefix="rl_model")
 
     try:
-        mmr_model_target_count = model.num_timesteps + mmr_save_frequency
-        while True:
+        if LEARNING_PHASE == LearningConfiguration.TRAINING:
+            print("Starting Training")
+            print("Training on:", model.device)
+            model.learn(training_interval,
+                        callback=callback,
+                        tb_log_name="1s_config_v2")  # can ignore callback if training_interval < callback target
+
+        elif LEARNING_PHASE == LearningConfiguration.EVALUATION:
+            print("Starting Evaluation")
             mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=1000, deterministic=True)
             print(mean_reward, std_reward)
-            # may need to reset timesteps when you're running a diff number of instances than when you saved the model
-            # model.learn(training_interval,
-            #             callback=callback,
-            #             tb_log_name="test_log")  # can ignore callback if training_interval < callback target
 
 
     except KeyboardInterrupt:
