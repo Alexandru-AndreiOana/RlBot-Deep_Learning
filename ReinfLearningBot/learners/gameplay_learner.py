@@ -45,6 +45,7 @@ class LearningConfiguration(Enum):
 def get_match():  # Need to use a function so that each instance can call it and produce their own objects
     return Match(
         team_size=1,
+        # Uncomment to inspect performance visually while evaluating: game_speed=2,
         reward_function=CombinedReward(
             (
                 VelocityPlayerToBallReward(),
@@ -77,7 +78,7 @@ if __name__ == '__main__':
 
     # print(torch.cuda.is_available())
 
-    LEARNING_PHASE = LearningConfiguration.TRAINING
+    LEARNING_PHASE = LearningConfiguration.EVALUATION
 
     env = SB3MultipleInstanceEnv(get_match, num_instances)  # Optional: add custom waiting time to load more instances
     env = VecCheckNan(env)
@@ -97,6 +98,7 @@ if __name__ == '__main__':
             device="cpu",
             force_reset=True
         )
+
         print("Loaded previous exit save.")
     except:
         print("No saved model found, creating new model.")
@@ -135,13 +137,15 @@ if __name__ == '__main__':
             print("Training on:", model.device)
             model.learn(training_interval,
                         callback=callback,
-                        tb_log_name="1s_config_v2")  # can ignore callback if training_interval < callback target
+                        tb_log_name="test")  # can ignore callback if training_interval < callback target
 
         elif LEARNING_PHASE == LearningConfiguration.EVALUATION:
             print("Starting Evaluation")
-            mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=1000, deterministic=True)
-            print(mean_reward, std_reward)
-
+            evaluation_epochs = 10
+            for n in range(evaluation_epochs):
+                mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=1000, deterministic=True)
+                print("Mean reward", mean_reward)
+                print("Reward STD: ", std_reward)
 
     except KeyboardInterrupt:
         print("Exiting training")
