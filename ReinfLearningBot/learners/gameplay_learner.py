@@ -1,4 +1,3 @@
-import torch
 from rlgym.envs import Match
 from rlgym.utils.reward_functions.common_rewards import VelocityPlayerToBallReward, RewardIfClosestToBall
 from stable_baselines3 import PPO
@@ -7,8 +6,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import VecMonitor, VecNormalize, VecCheckNan
 from stable_baselines3.ppo import MlpPolicy
 
-from rlgym.utils.obs_builders import AdvancedObs
-from rlgym.utils.state_setters import RandomState, DefaultState
+from rlgym.utils.state_setters import RandomState
 from rlgym.utils.terminal_conditions.common_conditions import TimeoutCondition, NoTouchTimeoutCondition, \
     GoalScoredCondition
 from rlgym_tools.sb3_utils import SB3MultipleInstanceEnv
@@ -20,7 +18,6 @@ from ReinfLearningBot.environment_config_objects.action_parser import CustomActi
 from ReinfLearningBot.environment_config_objects.observation_builder import CustomObs
 
 from enum import Enum
-from ReinfLearningBot.environment_config_objects.reward_function import CustomBallPlayerDistanceReward
 
 # CONSTANTS
 frame_skip = 8  # Number of ticks to repeat an action
@@ -44,8 +41,6 @@ class LearningConfiguration(Enum):
 
 def get_match():  # Need to use a function so that each instance can call it and produce their own objects
     return Match(
-        team_size=1,
-        # Uncomment to inspect performance visually while evaluating: game_speed=2,
         reward_function=CombinedReward(
             (
                 VelocityPlayerToBallReward(),
@@ -57,11 +52,10 @@ def get_match():  # Need to use a function so that each instance can call it and
                     shot=50.0,
                     demo=20.0,
                     touch=10,
-                    boost_pickup=0.5
+                    boost_pickup=1
                 ),
             ),
             (0.02, 0.04, 1.0)),
-        # self_play=True,  in rlgym 1.2 'self_play' is depreciated. Uncomment line if using an earlier version and comment out spawn_opponents
         spawn_opponents=True,
         terminal_conditions=[TimeoutCondition(fps * 30), NoTouchTimeoutCondition(fps * 15), GoalScoredCondition()],
         obs_builder=CustomObs(),  # Not that advanced, good default
@@ -73,21 +67,22 @@ def get_match():  # Need to use a function so that each instance can call it and
 if __name__ == '__main__':
 
     def exit_save(model):
-        model.save("./models/1s_config_1")
-
-
+        model.save("./models/last_model")
+        env = model.get_vec_normalize_env()
+        env.save("./models/last_env")
     # print(torch.cuda.is_available())
 
-    LEARNING_PHASE = LearningConfiguration.EVALUATION
+    LEARNING_PHASE = LearningConfiguration.TRAINING
 
     env = SB3MultipleInstanceEnv(get_match, num_instances)  # Optional: add custom waiting time to load more instances
     env = VecCheckNan(env)
     env = VecMonitor(env)  # Useful for Tensorboard logging
     env = VecNormalize(env, norm_obs=True, gamma=gamma)
 
+
     try:
         model = PPO.load(
-            "models/1s_config_1/rl_model_110000000_steps.zip",
+            "models/1s_config_2/checkpoint_rl_model_500000000_steps.zip",
             env=env,
             custom_objects=dict(n_envs=env.num_envs,
                                 n_steps=steps,
@@ -128,19 +123,21 @@ if __name__ == '__main__':
         )
 
     callback = CheckpointCallback(round(5_000_000 / env.num_envs),
-                                  save_path="./models/1s_config_2",
+                                  save_path="./models/test_path",
                                   name_prefix="rl_model")
 
     try:
         if LEARNING_PHASE == LearningConfiguration.TRAINING:
             print("Starting Training")
             print("Training on:", model.device)
+
             model.learn(training_interval,
                         callback=callback,
                         tb_log_name="test")  # can ignore callback if training_interval < callback target
 
         elif LEARNING_PHASE == LearningConfiguration.EVALUATION:
             print("Starting Evaluation")
+
             evaluation_epochs = 10
             for n in range(evaluation_epochs):
                 mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=1000, deterministic=True)
