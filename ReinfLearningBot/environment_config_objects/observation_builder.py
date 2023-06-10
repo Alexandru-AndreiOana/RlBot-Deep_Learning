@@ -7,7 +7,7 @@ from rlgym.utils.obs_builders import ObsBuilder
 
 
 class CustomObs(ObsBuilder):
-    POS_STD = 2300 # If you read this and wonder why, ping Rangler in the dead of night.
+    POS_STD = 2300  # If you read this and wonder why, ping Rangler in the dead of night.
     ANG_STD = math.pi
 
     BLUE_GOAL = common_values.BLUE_GOAL_BACK
