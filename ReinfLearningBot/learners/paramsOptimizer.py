@@ -1,12 +1,9 @@
-import numpy as np
-
 import optuna
 from rlgym_tools.sb3_utils import SB3MultipleInstanceEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import VecCheckNan, VecMonitor, VecNormalize
 from torch.nn import Tanh
-
 from ReinfLearningBot.learners.gameplay_learner import get_match
 
 if __name__ == '__main__':
@@ -32,34 +29,8 @@ if __name__ == '__main__':
     env = VecNormalize(env, norm_obs=True, gamma=0.999)
 
 
-    # def evaluate_model(model):
-    #     episodes_num = 100
-    #     rewards = []
-    #
-    #     for _ in range(episodes_num):
-    #         obs = env.reset()
-    #         obs_1 = obs[0]
-    #         obs_2 = obs[1]
-    #         done = False
-    #         steps = 0
-    #         ep_reward = 0
-    #
-    #         while not done:
-    #             actions_1 = env.action_space.sample()
-    #             actions_2 = env.action_space.sample()
-    #             actions = [actions_1, actions_2]
-    #             new_obs, reward, done, state = env.step(actions)
-    #             ep_reward += reward[0]
-    #             obs_1 = new_obs[0]
-    #             obs_2 = new_obs[1]
-    #             steps += 1
-    #
-    #     reward_mean = np.mean(rewards)
-    #
-    #     return reward_mean
-
     def objective(trial):
-        # Suggest values of the hyperparameters using a trial object.
+        # Sunt trimise intervale de cautare pentru fiecare parametru
         learning_rate = trial.suggest_float('learning_rate', 1e-5, 5e-4, step=2e-5)
         steps = trial.suggest_int("steps", min_steps, max_steps, step=n_steps_step)
         batch_size = trial.suggest_int("batch", min_batch_size, max_batch_size, step=batch_size_step)
@@ -73,11 +44,13 @@ if __name__ == '__main__':
         layer_size = trial.suggest_int("neurons", 64, 256, step=64)
         layers_num = trial.suggest_int("layers", 1, 3)
 
+        # Sunt optimizate numarul de layere si de noduri pentru retelele neurale
         policy_kwargs = dict(
             activation_fn=Tanh,
             net_arch=dict(pi=[layer_size] * layers_num, vf=[layer_size] * layers_num)
         )
 
+        # Sunt optimizati hiperparametrii pentru PPO
         model = PPO(
             "MlpPolicy",
             env,
@@ -96,14 +69,20 @@ if __name__ == '__main__':
             device="auto"
         )
 
-        training_steps_num = 30_000_000
+        training_steps_num = 30_000_000  # Numarul maxim de pasi al unui experiment
         training_epochs = 3
         mean_reward, std_reward = 0.0, 0.0
 
+        # Bucla de antrenare
+        # Antrenarea este impartita in 3 etape, astfel este posibila oprirea prematura
+        # a experimentului dupa 10 sau dupa 20 de milioane de epoci
         for epoch in range(training_epochs):
             model.learn(training_steps_num // 3, tb_log_name="1s_config_1", reset_num_timesteps=False)
+
+            # Este evaluata configuratia dupa fiecare 1/3 din durata experimentului
             mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=5000)
 
+            # Oprire prematura daca progresul este prea mic pentru epoca curenta
             trial.report(mean_reward, epoch)
             if trial.should_prune():
                 raise optuna.exceptions.TrialPruned()
@@ -112,12 +91,10 @@ if __name__ == '__main__':
         return mean_reward
 
 
-    study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=100)
+    study = optuna.create_study(direction="maximize")  # Se cauta maximizarea obiectivului
+    study.optimize(objective, n_trials=100)  # Se ruleaza 100 de iteratii de optimizare
 
-    fig = optuna.visualization.plot_param_importances(study)
-    fig.show()
-
+    # Se salveaza statisticile de optimizare
     pruned_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.PRUNED]
     complete_trials = [t for t in study.trials if t.state == optuna.trial.TrialState.COMPLETE]
 
@@ -130,7 +107,6 @@ if __name__ == '__main__':
     trial = study.best_trial
 
     print(" Value: ", trial.value)
-    print(" Params: ")
-
+    print(" Params: ", )
     for key, value in trial.params.items():
-        print(f"    {key}: {value}")
+        print(f"{key}: {value}")

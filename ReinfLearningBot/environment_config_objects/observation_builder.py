@@ -7,20 +7,15 @@ from rlgym.utils.obs_builders import ObsBuilder
 
 
 class CustomObs(ObsBuilder):
-    POS_STD = 2300  # If you read this and wonder why, ping Rangler in the dead of night.
+    # Termeni de normalizare
+    POS_STD = 2300
     ANG_STD = math.pi
-
     BLUE_GOAL = common_values.BLUE_GOAL_BACK
     ORANGE_GOAL = common_values.ORANGE_GOAL_BACK
 
-    def __init__(self):
-        super().__init__()
-
-    def reset(self, initial_state: GameState):
-        pass
-
     def build_obs(self, player: PlayerData, state: GameState, previous_action: np.ndarray) -> Any:
-
+        # Observatia este reprezentata simetric
+        # pentru ambele echipe
         if player.team_num == common_values.ORANGE_TEAM:
             inverted = True
             ball = state.inverted_ball
@@ -41,9 +36,8 @@ class CustomObs(ObsBuilder):
 
         player_car = self._add_player_to_obs(obs, player, ball, inverted)
 
-        allies = []
-        enemies = []
-
+        allies, enemies = [], []
+        # Sunt adaugati si ceilalti jucatori in observatie
         for other in state.players:
             if other.car_id == player.car_id:
                 continue
@@ -54,19 +48,22 @@ class CustomObs(ObsBuilder):
                 team_obs = enemies
 
             other_car = self._add_player_to_obs(team_obs, other, ball, inverted)
-
-            # Extra info
             team_obs.extend([
+                # Distanta dintre pozitia oponentului si a agentului
                 (other_car.position - player_car.position) / self.POS_STD,
+                # Distanta dintre viteza liniara a oponentului si a agentului
                 (other_car.linear_velocity - player_car.linear_velocity) / self.POS_STD
             ])
 
         obs.extend(allies)
         obs.extend(enemies)
-
         return np.concatenate(obs)
 
+    def reset(self, initial_state: GameState):
+        pass
+
     def _add_player_to_obs(self, obs: List, player: PlayerData, ball: PhysicsObject, inverted: bool):
+        # Reprezentare simetrica
         if inverted:
             player_car = player.inverted_car_data
         else:

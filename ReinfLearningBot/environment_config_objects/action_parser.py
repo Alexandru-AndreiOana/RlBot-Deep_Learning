@@ -10,10 +10,10 @@ from rlgym.utils.gamestates import GameState
 class CustomActionParser(ActionParser):
     def __init__(self):
         super().__init__()
-        self._lookup_table = self.make_lookup_table()
+        self._available_actions = self._get_all_possible_actions()
 
     @staticmethod
-    def make_lookup_table():
+    def _get_all_possible_actions():
         actions = []
         # Ground
         for throttle in (-1, 0, 1):
@@ -40,13 +40,13 @@ class CustomActionParser(ActionParser):
         return actions
 
     def get_action_space(self) -> gym.spaces.Space:
-        return Discrete(len(self._lookup_table))
+        return Discrete(len(self._available_actions))
 
     def parse_actions(self, actions: Any, state: GameState) -> np.ndarray:
         parsed_actions = []
 
         for action in actions:
-            parsed_actions.append(self._lookup_table[action])
+            parsed_actions.append(self._available_actions[action])
 
         return np.asarray(parsed_actions)
 
