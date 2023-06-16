@@ -7,7 +7,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import VecMonitor, VecNormalize, VecCheckNan
 from stable_baselines3.ppo import MlpPolicy
 from rlgym.utils.state_setters import RandomState
-from rlgym.utils.terminal_conditions.common_conditions import TimeoutCondition, NoTouchTimeoutCondition, GoalScoredCondition
+from rlgym.utils.terminal_conditions.common_conditions import TimeoutCondition, NoTouchTimeoutCondition
 from rlgym_tools.sb3_utils import SB3MultipleInstanceEnv
 from rlgym.utils.reward_functions.common_rewards.misc_rewards import EventReward
 from rlgym.utils.reward_functions.common_rewards.ball_goal_rewards import VelocityBallToGoalReward
@@ -57,6 +57,12 @@ def get_match():  # Functia este apelata pentru fiecare instanta lansata
 if __name__ == '__main__':
 
     def exit_save(model):
+        env_stats = model.get_env()
+
+        print(f"Obs_rms mean: {env_stats.obs_rms.mean}")
+        print(f"Obs_rms var: {env_stats.obs_rms.var}")
+        print(f"Environment stats available {env_stats}")
+
         model.save(f"./models/{Constants.CONFIG_NAME.value}_exit")
 
 
@@ -69,7 +75,7 @@ if __name__ == '__main__':
 
     try:
         model = PPO.load(
-            "models/Checkpoint3/rl_model_215000000_steps.zip",
+            "./models/CHECKPOINT_4/rl_model_365000000_steps.zip",
             env=env,
             custom_objects=dict(n_envs=env.num_envs,
                                 n_steps=steps,
@@ -85,6 +91,15 @@ if __name__ == '__main__':
             force_reset=True
         )
         print("Loaded previous exit save.")
+
+        try:
+            env_stats = model.get_env()
+            print(f"Obs_rms mean: {env_stats.obs_rms.mean}")
+            print(f"Obs_rms var: {env_stats.obs_rms.var}")
+            print(f"Environment stats available {env_stats}")
+        except:
+            print("Could not retrieve environment statistics")
+
     except:
         print("No saved model found, creating new model.")
         from torch.nn import Tanh
