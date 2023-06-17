@@ -10,8 +10,9 @@ class CustomObs(ObsBuilder):
     # Termeni de normalizare
     POS_STD = 2300
     ANG_STD = math.pi
-    BLUE_GOAL = common_values.BLUE_GOAL_BACK
-    ORANGE_GOAL = common_values.ORANGE_GOAL_BACK
+    # Pozitiile portilor
+    BLUE_GOAL = np.array(common_values.BLUE_GOAL_BACK) / POS_STD
+    ORANGE_GOAL = np.array(common_values.ORANGE_GOAL_BACK) / POS_STD
 
     def build_obs(self, player: PlayerData, state: GameState, previous_action: np.ndarray) -> Any:
         # Observatia este reprezentata simetric

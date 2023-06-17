@@ -6,7 +6,7 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import VecMonitor, VecNormalize, VecCheckNan
 from stable_baselines3.ppo import MlpPolicy
-from rlgym.utils.state_setters import RandomState
+from rlgym.utils.state_setters import RandomState, DefaultState
 from rlgym.utils.terminal_conditions.common_conditions import TimeoutCondition, NoTouchTimeoutCondition
 from rlgym_tools.sb3_utils import SB3MultipleInstanceEnv
 from rlgym.utils.reward_functions.common_rewards.misc_rewards import EventReward
@@ -45,11 +45,12 @@ def get_match():  # Functia este apelata pentru fiecare instanta lansata
                 touch=10,
                 boost_pickup=0.5
             )),
-            (0.0001, 0.0002, 0.0008, 1.0)),
+            (0.001, 0.002, 0.004, 1.0)),
         spawn_opponents=True,  # antrenare prin self-play
         terminal_conditions=[TimeoutCondition(fps * 30), NoTouchTimeoutCondition(fps * 15)],
         obs_builder=CustomObs(),
-        state_setter=RandomState(ball_rand_speed=True, cars_rand_speed=True),
+        state_setter=RandomState(),
+        # later training: RandomState(ball_rand_speed=True, cars_rand_speed=True),
         action_parser=CustomActionParser()
     )
 
@@ -71,11 +72,11 @@ if __name__ == '__main__':
     env = SB3MultipleInstanceEnv(get_match, Constants.NUM_INSTANCES.value, wait_time=50)
     env = VecCheckNan(env)
     env = VecMonitor(env)
-    env = VecNormalize(env, norm_obs=True, gamma=Constants.GAMMA.value)
+    env = VecNormalize(env, norm_obs=False, gamma=Constants.GAMMA.value)
 
     try:
         model = PPO.load(
-            "./models/CHECKPOINT_4/rl_model_365000000_steps.zip",
+            "./models/CHECKPOINT_4/gibberish",
             env=env,
             custom_objects=dict(n_envs=env.num_envs,
                                 n_steps=steps,
@@ -83,7 +84,7 @@ if __name__ == '__main__':
                                 clip_range=0.1,
                                 learning_rate=7e-5,
                                 ent_coef=0.01,
-                                vf_coef=0.7,
+                                vf_coef=0.95,
                                 gae_lambda=0.9,
                                 _last_obs=None,
                                 verbose=3,
@@ -92,13 +93,13 @@ if __name__ == '__main__':
         )
         print("Loaded previous exit save.")
 
-        try:
-            env_stats = model.get_env()
-            print(f"Obs_rms mean: {env_stats.obs_rms.mean}")
-            print(f"Obs_rms var: {env_stats.obs_rms.var}")
-            print(f"Environment stats available {env_stats}")
-        except:
-            print("Could not retrieve environment statistics")
+        # try:
+        #     env_stats = model.get_env()
+        #     print(f"Obs_rms mean: {env_stats.obs_rms.mean}")
+        #     print(f"Obs_rms var: {env_stats.obs_rms.var}")
+        #     print(f"Environment stats available {env_stats}")
+        # except:
+        #     print("Could not retrieve environment statistics")
 
     except:
         print("No saved model found, creating new model.")
@@ -115,16 +116,16 @@ if __name__ == '__main__':
             n_epochs=31,
             policy_kwargs=policy_kwargs,
             learning_rate=3.7e-4,
-            ent_coef=0.05,
-            vf_coef=1.0,
+            ent_coef=0.01,
+            vf_coef=1,
             gamma=Constants.GAMMA.value,
             verbose=3,
             batch_size=Constants.BATCH_SIZE.value,
             n_steps=steps,
-            clip_range=0.4,
+            clip_range=0.2,
             gae_lambda=0.8,
             tensorboard_log="./rl_tensorboard_log",
-            device="cpu"
+            device="auto"
         )
 
     callback = CheckpointCallback(round(5_000_000 / env.num_envs),
