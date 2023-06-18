@@ -9,4 +9,4 @@ class Constants(Enum):
     TARGET_STEPS = 750_000
     BATCH_SIZE = 50_000
     TRAINING_INTERVAL = 20_000_000_000
-    CONFIG_NAME = "RLBOT_config"
+    CONFIG_NAME = "RLBOT_config_2"

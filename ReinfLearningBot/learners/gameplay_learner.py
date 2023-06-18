@@ -39,18 +39,17 @@ def get_match():  # Functia este apelata pentru fiecare instanta lansata
             EventReward(
                 goal=1000.0,
                 concede=-1000.0,
-                save=100.0,
-                shot=50.0,
+                save=120.0,
+                shot=35.0,
                 demo=20.0,
                 touch=10,
-                boost_pickup=0.5
+                boost_pickup=3
             )),
-            (0.001, 0.002, 0.004, 1.0)),
+            (0.0001, 0.0002, 0.0002, 1.0)),
         spawn_opponents=True,  # antrenare prin self-play
         terminal_conditions=[TimeoutCondition(fps * 30), NoTouchTimeoutCondition(fps * 15)],
         obs_builder=CustomObs(),
-        state_setter=RandomState(),
-        # later training: RandomState(ball_rand_speed=True, cars_rand_speed=True),
+        state_setter=DefaultState(),
         action_parser=CustomActionParser()
     )
 
@@ -76,30 +75,20 @@ if __name__ == '__main__':
 
     try:
         model = PPO.load(
-            "./models/CHECKPOINT_4/gibberish",
+            "./models/RLBOT_config/rl_model_220000000_steps.zip",
             env=env,
             custom_objects=dict(n_envs=env.num_envs,
                                 n_steps=steps,
                                 batch_size=Constants.BATCH_SIZE.value,
-                                clip_range=0.1,
-                                learning_rate=7e-5,
-                                ent_coef=0.01,
-                                vf_coef=0.95,
-                                gae_lambda=0.9,
+                                clip_range=0.15,
+                                learning_rate=1e-4,
+                                ent_coef=0.007,
                                 _last_obs=None,
                                 verbose=3,
                                 tensorboard_log="./rl_tensorboard_log"),
             force_reset=True
         )
         print("Loaded previous exit save.")
-
-        # try:
-        #     env_stats = model.get_env()
-        #     print(f"Obs_rms mean: {env_stats.obs_rms.mean}")
-        #     print(f"Obs_rms var: {env_stats.obs_rms.var}")
-        #     print(f"Environment stats available {env_stats}")
-        # except:
-        #     print("Could not retrieve environment statistics")
 
     except:
         print("No saved model found, creating new model.")
