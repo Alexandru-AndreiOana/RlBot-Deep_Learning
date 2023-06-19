@@ -39,17 +39,17 @@ def get_match():  # Functia este apelata pentru fiecare instanta lansata
             EventReward(
                 goal=1000.0,
                 concede=-1000.0,
-                save=120.0,
+                save=150.0,
                 shot=35.0,
                 demo=20.0,
                 touch=10,
-                boost_pickup=3
+                boost_pickup=5
             )),
-            (0.0001, 0.0002, 0.0004, 1.0)),
+            (0.0001, 0.0002, 0.0006, 1.0)),
         spawn_opponents=True,  # antrenare prin self-play
         terminal_conditions=[TimeoutCondition(fps * 30), NoTouchTimeoutCondition(fps * 15)],
         obs_builder=CustomObs(),
-        state_setter=DefaultState(),
+        state_setter=RandomState(),
         action_parser=CustomActionParser()
     )
 
@@ -79,10 +79,8 @@ if __name__ == '__main__':
             env=env,
             custom_objects=dict(n_envs=env.num_envs,
                                 n_steps=steps,
-                                learning_rate=2e-4,
-                                clip_range=0.1,
-                                vf_coef=0.8,
-                                ent_coef=0,
+                                vf_coef=0.95,
+                                ent_coef=0.0,
                                 _last_obs=None,
                                 verbose=3,
                                 tensorboard_log="./rl_tensorboard_log"),
