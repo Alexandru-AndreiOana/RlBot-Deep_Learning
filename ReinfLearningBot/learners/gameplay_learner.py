@@ -1,5 +1,4 @@
 from rlgym.envs import Match
-from rlgym.utils.reward_functions.common_rewards import VelocityPlayerToBallReward
 from rlgym.utils.reward_functions.common_rewards import VelocityReward
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback
@@ -7,10 +6,10 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import VecMonitor, VecNormalize, VecCheckNan
 from stable_baselines3.ppo import MlpPolicy
 from rlgym.utils.state_setters import RandomState, DefaultState
-from rlgym.utils.terminal_conditions.common_conditions import TimeoutCondition, NoTouchTimeoutCondition
+from rlgym.utils.terminal_conditions.common_conditions import TimeoutCondition, NoTouchTimeoutCondition, GoalScoredCondition
 from rlgym_tools.sb3_utils import SB3MultipleInstanceEnv
 from rlgym.utils.reward_functions.common_rewards.misc_rewards import EventReward
-from rlgym.utils.reward_functions.common_rewards.ball_goal_rewards import VelocityBallToGoalReward
+from rlgym.utils.reward_functions.common_rewards.player_ball_rewards import LiuDistancePlayerToBallReward
 from rlgym.utils.reward_functions import CombinedReward
 from ReinfLearningBot.environment_config_objects.action_parser import CustomActionParser
 from ReinfLearningBot.environment_config_objects.observation_builder import CustomObs
@@ -34,22 +33,20 @@ def get_match():  # Functia este apelata pentru fiecare instanta lansata
         # game_speed=2,
         reward_function=CombinedReward((
             VelocityReward(),
-            VelocityPlayerToBallReward(use_scalar_projection=True),
-            VelocityBallToGoalReward(use_scalar_projection=True),
+            LiuDistancePlayerToBallReward(),
             EventReward(
                 goal=1000.0,
                 concede=-1000.0,
                 save=150.0,
-                shot=35.0,
                 demo=20.0,
                 touch=10,
                 boost_pickup=5
             )),
-            (0.0001, 0.0002, 0.0006, 1.0)),
+            (0.0004, 0.0008, 1.0)),
         spawn_opponents=True,  # antrenare prin self-play
-        terminal_conditions=[TimeoutCondition(fps * 30), NoTouchTimeoutCondition(fps * 15)],
+        terminal_conditions=[TimeoutCondition(fps * 30), NoTouchTimeoutCondition(fps * 15), GoalScoredCondition()],
         obs_builder=CustomObs(),
-        state_setter=RandomState(),
+        state_setter=RandomState(ball_rand_speed=True, cars_rand_speed=True),
         action_parser=CustomActionParser()
     )
 
@@ -75,12 +72,15 @@ if __name__ == '__main__':
 
     try:
         model = PPO.load(
-            "./models/RLBOT_config/rl_model_220000000_steps.zip",
+            "./models/RLBOT_config_2/rl_model_25000000_steps.zip",
             env=env,
             custom_objects=dict(n_envs=env.num_envs,
                                 n_steps=steps,
-                                vf_coef=0.95,
-                                ent_coef=0.0,
+                                batch_size=Constants.BATCH_SIZE.value,
+                                learning_rate=2e-4,
+                                n_epochs=20,
+                                vf_coef=0.7,
+                                ent_coef=0.01,
                                 _last_obs=None,
                                 verbose=3,
                                 tensorboard_log="./rl_tensorboard_log"),
