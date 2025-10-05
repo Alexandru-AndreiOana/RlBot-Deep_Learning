@@ -13,5 +13,5 @@ environment, achieved solely through self-play. The paper presents the methods u
 develop a competent Rocket League agent, in a relatively short amount of time and with
 limited computational resources.
 
-## Paper in Romanian (English translation coming soon)
+## Paper in Romanian
 https://github.com/Alexandru-AndreiOana/RlBot-Deep_Learning/blob/main/Bachelor%20Thesis.pdf 
